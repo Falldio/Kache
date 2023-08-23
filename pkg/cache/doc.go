@@ -1,0 +1,3 @@
+// Package cache provides cache strategy support of the kv system,
+// currently we have fifo, lru (default), lfu ...
+package cache
