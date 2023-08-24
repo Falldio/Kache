@@ -10,7 +10,7 @@ Kache is a distributed caching system developed for learning purpose only. The g
 
 + shard data by consistent hashing
 
-### Unlick GeeCache, Kache:
+### Unlike GeeCache, Kache:
 
 + use `gRPC` instead of `HTTP` as the communication protocol
 + support more caching strategies like lfu, fifo ...
