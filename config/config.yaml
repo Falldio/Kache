@@ -3,3 +3,4 @@ port: 5658
 max_cache_bytes: 200
 api: 1
 cache_strategy: lru
+default_replicas: 5
