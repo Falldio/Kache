@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"testing"
@@ -14,6 +15,41 @@ func TestGetFIFO(t *testing.T) {
 	}
 	if _, ok := fifo.Get("key2"); ok {
 		t.Fatalf("cache miss key2 failed")
+	}
+}
+
+func TestSetFIFO(t *testing.T) {
+	// normal set
+	fifo := newFIFOCache(int64(0), nil)
+	fifo.Set("k1", String("v1"))
+	fifo.Set("k2", String("v2"))
+	if v, ok := fifo.Get("k1"); !ok || string(v.(String)) != "v1" {
+		t.Fatalf("get key k1 failed, expect v1, got %v", v)
+	}
+	if v, ok := fifo.Get("k2"); !ok || string(v.(String)) != "v2" {
+		t.Fatalf("get key k2 failed, expect v2, got %v", v)
+	}
+
+	// update
+	fifo.Set("k2", String("v3"))
+	if v, ok := fifo.Get("k2"); !ok || string(v.(String)) != "v3" {
+		t.Fatalf("get key k2 failed, expect v3, got %v", v)
+	}
+
+	// shrink
+	keys := []string{}
+	for i := 0; i < 10; i++ {
+		keys = append(keys, fmt.Sprintf("%d+a", i))
+	}
+	fifo = newFIFOCache(int64(8), nil)
+	for _, k := range keys {
+		fifo.Set(k, String(k))
+	}
+	if v, ok := fifo.Get(keys[0]); ok {
+		t.Fatalf("expect empty, got %v", v)
+	}
+	if v, ok := fifo.Get(keys[9]); !ok || string(v.(String)) != keys[9] {
+		t.Fatalf("get key %s failed, expect %s, got %v", keys[9], keys[9], v)
 	}
 }
 
@@ -65,5 +101,23 @@ func TestHasFIFO(t *testing.T) {
 	}
 	if fifo.Has("key2") {
 		t.Fatalf("fifo shouldn't have key2")
+	}
+}
+
+func TestShrinkFIFO(t *testing.T) {
+	fifo := newFIFOCache(int64(0), nil)
+	keys := []string{}
+	for i := 0; i < 10; i++ {
+		keys = append(keys, fmt.Sprintf("%d+a", i))
+	}
+	for _, k := range keys {
+		fifo.Set(k, String(k))
+	}
+	if v, ok := fifo.Get(keys[0]); !ok {
+		t.Fatalf("expect %v, got %v", keys[0], v)
+	}
+	fifo.Shrink()
+	if v, ok := fifo.Get(keys[0]); ok {
+		t.Fatalf("expect empty, got %v", v)
 	}
 }

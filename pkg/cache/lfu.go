@@ -3,6 +3,7 @@ package cache
 import (
 	"container/list"
 	"math"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -12,12 +13,14 @@ type LFUCache struct {
 	items   map[string]*list.Element
 	freqMap map[int64]*list.List // freq -> freqList (LRU inside list)
 	minFreq int64                // least freqency
+	protect time.Duration        // protect time
 }
 
 type lfuEntry struct {
-	key   string
-	value Value
-	freq  int64
+	key        string
+	value      Value
+	freq       int64
+	insertTime time.Time
 }
 
 func newLFUCache(maxBytes int64, OnEvicted func(string, Value)) *LFUCache {
@@ -26,6 +29,7 @@ func newLFUCache(maxBytes int64, OnEvicted func(string, Value)) *LFUCache {
 		items:     make(map[string]*list.Element),
 		freqMap:   make(map[int64]*list.List),
 		minFreq:   0,
+		protect:   time.Millisecond * 5,
 	}
 }
 
@@ -44,6 +48,9 @@ func (c *LFUCache) Get(key string) (v Value, ok bool) {
 func (c *LFUCache) Set(key string, value Value) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	for c.maxBytes != 0 && c.nbytes > c.maxBytes {
+		c.removeLeastFreqUsed()
+	}
 	if el, ok := c.items[key]; ok {
 		kv := el.Value.(*lfuEntry)
 		c.nbytes += int64(value.Len()) - int64(kv.value.Len())
@@ -54,14 +61,13 @@ func (c *LFUCache) Set(key string, value Value) {
 		if _, ok := c.freqMap[1]; !ok {
 			c.freqMap[1] = list.New()
 		}
-		el := c.freqMap[1].PushFront(&lfuEntry{key: key, freq: 1, value: value})
+		ev := &lfuEntry{key: key, freq: 1, value: value, insertTime: time.Now()}
+		el := c.freqMap[1].PushFront(ev)
 		c.items[key] = el
 		c.minFreq = 1
 		c.nbytes += int64(len(key)) + int64(value.Len())
 	}
-	for c.maxBytes != 0 && c.nbytes > c.maxBytes {
-		c.removeLeastFreqUsed()
-	}
+	log.Println("set key", key, "value", value, "nbytes", c.nbytes, "maxBytes", c.maxBytes)
 }
 
 func (c *LFUCache) updateFreq(el *list.Element) {
@@ -69,10 +75,10 @@ func (c *LFUCache) updateFreq(el *list.Element) {
 	c.freqMap[kv.freq].Remove(el)
 	kv.freq++
 	if l, ok := c.freqMap[kv.freq]; ok {
-		l.PushFront(kv)
+		c.items[kv.key] = l.PushFront(kv)
 	} else {
 		c.freqMap[kv.freq] = list.New()
-		c.freqMap[kv.freq].PushFront(kv)
+		c.items[kv.key] = c.freqMap[kv.freq].PushFront(kv)
 	}
 	if l, ok := c.freqMap[c.minFreq]; !ok || l.Len() == 0 {
 		delete(c.freqMap, c.minFreq)
@@ -82,6 +88,12 @@ func (c *LFUCache) updateFreq(el *list.Element) {
 
 func (c *LFUCache) removeLeastFreqUsed() {
 	el := c.freqMap[c.minFreq].Back()
+	for el != nil && el.Value.(*lfuEntry).insertTime.Add(c.protect).After(time.Now()) {
+		el = el.Prev()
+	}
+	if el == nil {
+		el = c.freqMap[c.minFreq].Back()
+	}
 	c.remove(el)
 }
 
@@ -95,6 +107,7 @@ func (c *LFUCache) Remove(key string) {
 func (c *LFUCache) remove(el *list.Element) {
 	if el != nil {
 		kv := el.Value.(*lfuEntry)
+		log.Println("removing key", kv.key, "value", kv.value, "nbytes", c.nbytes, "maxBytes", c.maxBytes)
 		c.freqMap[c.minFreq].Remove(el)
 		c.nbytes -= int64(len(kv.key)) + int64(kv.value.Len())
 		delete(c.items, kv.key)
@@ -135,6 +148,12 @@ func (c *LFUCache) Has(key string) bool {
 		c.updateFreq(el)
 	}
 	return ok
+}
+
+func (c *LFUCache) Shrink() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.removeLeastFreqUsed()
 }
 
 var _ Cache = (*LFUCache)(nil)

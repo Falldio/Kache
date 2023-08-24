@@ -1,6 +1,10 @@
 package cache
 
-import "container/list"
+import (
+	"container/list"
+
+	log "github.com/sirupsen/logrus"
+)
 
 type FIFOCache struct {
 	baseCache
@@ -27,6 +31,7 @@ func (c *FIFOCache) Get(key string) (value Value, ok bool) {
 	if v, ok := c.items[key]; ok {
 		return v.Value.(*fifoEntry).value, true
 	}
+	log.Printf("cache miss key: %s", key)
 	return
 }
 
@@ -35,17 +40,13 @@ func (c *FIFOCache) Set(key string, value Value) {
 	defer c.mu.Unlock()
 	if v, ok := c.items[key]; ok {
 		c.nbytes += int64(value.Len()) - int64(v.Value.(*fifoEntry).value.Len())
-		c.items[key].Value = value
+		c.items[key].Value = &fifoEntry{key: key, value: value}
 	} else {
 		c.nbytes += int64(len(key)) + int64(value.Len())
 		c.items[key] = c.ll.PushFront(&fifoEntry{key: key, value: value})
 	}
 	for c.maxBytes != 0 && c.nbytes > c.maxBytes {
-		el := c.ll.Back()
-		c.ll.Remove(el)
-		kv := el.Value.(*fifoEntry)
-		delete(c.items, kv.key)
-		c.nbytes -= int64(len(kv.key)) + int64(kv.value.Len())
+		c.shrink()
 	}
 }
 
@@ -82,3 +83,19 @@ func (c *FIFOCache) Has(key string) bool {
 	_, ok := c.items[key]
 	return ok
 }
+
+func (c *FIFOCache) Shrink() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.shrink()
+}
+
+func (c *FIFOCache) shrink() {
+	el := c.ll.Back()
+	c.ll.Remove(el)
+	kv := el.Value.(*fifoEntry)
+	delete(c.items, kv.key)
+	c.nbytes -= int64(len(kv.key)) + int64(kv.value.Len())
+}
+
+var _ Cache = (*FIFOCache)(nil)

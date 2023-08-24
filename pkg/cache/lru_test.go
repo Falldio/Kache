@@ -23,6 +23,20 @@ func TestGetLRU(t *testing.T) {
 	}
 }
 
+func TestSetLRU(t *testing.T) {
+	// normal set
+	lru := newLRUCache(int64(0), nil)
+	lru.Set("key1", String("1234"))
+	if v, ok := lru.Get("key1"); !ok || string(v.(String)) != "1234" {
+		t.Fatalf("cache hit key1=1234 failed")
+	}
+	// update
+	lru.Set("key1", String("5678"))
+	if v, ok := lru.Get("key1"); !ok || string(v.(String)) != "5678" {
+		t.Fatalf("cache hit key1=5678 failed")
+	}
+}
+
 func TestRemoveOldestLRU(t *testing.T) {
 	k1, k2, k3 := "key1", "key2", "key3"
 	v1, v2, v3 := "value1", "value2", "value3"
@@ -34,24 +48,6 @@ func TestRemoveOldestLRU(t *testing.T) {
 
 	if _, ok := lru.Get("key1"); ok || lru.ll.Len() != 2 {
 		t.Fatalf("RemoveOlderst key1 failed")
-	}
-}
-
-func TestOnEnvictedLRU(t *testing.T) {
-	keys := make([]string, 0)
-	callback := func(key string, value Value) {
-		keys = append(keys, key)
-	}
-	lru := newLRUCache(int64(10), callback)
-	lru.Set("key1", String("123456"))
-	lru.Set("k2", String("v2"))
-	lru.Set("k3", String("v3"))
-	lru.Set("k4", String("v4"))
-
-	expect := []string{"key1", "k2"}
-
-	if !reflect.DeepEqual(expect, keys) {
-		t.Fatalf("Call OnEvicted failed, expect: %v, got: %v", expect, keys)
 	}
 }
 
@@ -103,5 +99,20 @@ func TestLenLRU(t *testing.T) {
 	sz = lru.Len()
 	if sz != 1 {
 		t.Fatalf("lru has wrong length, expect: 1, got: %d", sz)
+	}
+}
+
+func TestShrinkLRU(t *testing.T) {
+	lru := newLRUCache(int64(0), nil)
+	lru.Set("k1", String("v1"))
+	lru.Set("k2", String("v2"))
+	// has function will move k1 to the front of the list,
+	// so k2 will be removed when shrink is called
+	if !lru.Has("k1") {
+		t.Fatalf("lru should have k1")
+	}
+	lru.Shrink()
+	if lru.Has("k2") {
+		t.Fatalf("lru shouldn't have k1")
 	}
 }

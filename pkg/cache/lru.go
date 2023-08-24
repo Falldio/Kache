@@ -2,14 +2,15 @@ package cache
 
 import (
 	"container/list"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type LRUCache struct {
 	baseCache
 	// this list serves as the lru list, that is, the nodes are sorted according to their recent used time
-	ll        *list.List
-	items     map[string]*list.Element
-	OnEvicted func(key string, value Value)
+	ll    *list.List
+	items map[string]*list.Element
 }
 
 type lruEntry struct {
@@ -22,7 +23,6 @@ func newLRUCache(maxBytes int64, OnEvicted func(string, Value)) *LRUCache {
 		baseCache: baseCache{maxBytes: maxBytes},
 		ll:        list.New(),
 		items:     make(map[string]*list.Element),
-		OnEvicted: OnEvicted,
 	}
 }
 
@@ -39,14 +39,12 @@ func (c *LRUCache) Get(key string) (value Value, ok bool) {
 
 func (c *LRUCache) removeOldest() {
 	el := c.ll.Back()
+	log.Printf("removeOldest: %v", el.Value.(*lruEntry))
 	if el != nil {
-		c.ll.Remove(el)
 		kv := el.Value.(*lruEntry)
 		delete(c.items, kv.key)
+		c.ll.Remove(el)
 		c.nbytes -= int64(len(kv.key)) + int64(kv.value.Len())
-		if c.OnEvicted != nil {
-			c.OnEvicted(kv.key, kv.value)
-		}
 	}
 }
 
@@ -102,10 +100,13 @@ func (c *LRUCache) Remove(key string) {
 		c.nbytes -= int64(len(kv.key)) + int64(kv.value.Len())
 		delete(c.items, key)
 		c.ll.Remove(el)
-		if c.OnEvicted != nil {
-			c.OnEvicted(kv.key, kv.value)
-		}
 	}
+}
+
+func (c *LRUCache) Shrink() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.removeOldest()
 }
 
 var _ Cache = (*LRUCache)(nil)

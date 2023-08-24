@@ -21,10 +21,18 @@ type Cache interface {
 	Keys() []string
 	Len() int
 	Has(key string) bool
+	Bytes() int64
+	Shrink()
 }
 
 type baseCache struct {
 	mu       sync.RWMutex
 	maxBytes int64
 	nbytes   int64 // current size
+}
+
+func (c *baseCache) Bytes() int64 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.nbytes
 }
