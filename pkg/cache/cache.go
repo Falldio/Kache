@@ -1,6 +1,8 @@
 package cache
 
-import "sync"
+import (
+	"sync"
+)
 
 type cacheStrategy string
 
@@ -29,6 +31,12 @@ type baseCache struct {
 	mu       sync.RWMutex
 	maxBytes int64
 	nbytes   int64 // current size
+}
+
+func newBaseCache(maxBytes int64) baseCache {
+	return baseCache{
+		maxBytes: maxBytes,
+	}
 }
 
 func (c *baseCache) Bytes() int64 {

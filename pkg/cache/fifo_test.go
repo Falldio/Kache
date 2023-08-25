@@ -8,7 +8,7 @@ import (
 )
 
 func TestGetFIFO(t *testing.T) {
-	fifo := newFIFOCache(int64(0), nil)
+	fifo := newFIFOCache(int64(0))
 	fifo.Set("k1", String("v1"))
 	if v, ok := fifo.Get("k1"); !ok || string(v.(String)) != "v1" {
 		t.Fatalf("get key k1 failed, expect v1, got %v", v)
@@ -20,7 +20,7 @@ func TestGetFIFO(t *testing.T) {
 
 func TestSetFIFO(t *testing.T) {
 	// normal set
-	fifo := newFIFOCache(int64(0), nil)
+	fifo := newFIFOCache(int64(0))
 	fifo.Set("k1", String("v1"))
 	fifo.Set("k2", String("v2"))
 	if v, ok := fifo.Get("k1"); !ok || string(v.(String)) != "v1" {
@@ -41,7 +41,7 @@ func TestSetFIFO(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		keys = append(keys, fmt.Sprintf("%d+a", i))
 	}
-	fifo = newFIFOCache(int64(8), nil)
+	fifo = newFIFOCache(int64(8))
 	for _, k := range keys {
 		fifo.Set(k, String(k))
 	}
@@ -54,7 +54,7 @@ func TestSetFIFO(t *testing.T) {
 }
 
 func TestRemoveFIFO(t *testing.T) {
-	fifo := newFIFOCache(int64(0), nil)
+	fifo := newFIFOCache(int64(0))
 	fifo.Set("key1", String("1234"))
 	fifo.Remove("key1")
 	if fifo.Has("key1") {
@@ -63,7 +63,7 @@ func TestRemoveFIFO(t *testing.T) {
 }
 
 func TestKeysFIFO(t *testing.T) {
-	fifo := newFIFOCache(int64(0), nil)
+	fifo := newFIFOCache(int64(0))
 	fifo.Set("k1", String("v1"))
 	fifo.Set("k2", String("v2"))
 	fifo.Set("k3", String("v3"))
@@ -81,7 +81,7 @@ func TestKeysFIFO(t *testing.T) {
 }
 
 func TestLenFIFO(t *testing.T) {
-	fifo := newFIFOCache(int64(0), nil)
+	fifo := newFIFOCache(int64(0))
 	sz := fifo.Len()
 	if sz != 0 {
 		t.Fatalf("fifo has wrong length, expect: 0, got: %d", sz)
@@ -94,7 +94,7 @@ func TestLenFIFO(t *testing.T) {
 }
 
 func TestHasFIFO(t *testing.T) {
-	fifo := newFIFOCache(int64(0), nil)
+	fifo := newFIFOCache(int64(0))
 	fifo.Set("key1", String("1234"))
 	if !fifo.Has("key1") {
 		t.Fatalf("fifo should have key1")
@@ -105,7 +105,7 @@ func TestHasFIFO(t *testing.T) {
 }
 
 func TestShrinkFIFO(t *testing.T) {
-	fifo := newFIFOCache(int64(0), nil)
+	fifo := newFIFOCache(int64(0))
 	keys := []string{}
 	for i := 0; i < 10; i++ {
 		keys = append(keys, fmt.Sprintf("%d+a", i))

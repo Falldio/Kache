@@ -18,9 +18,9 @@ type lruEntry struct {
 	value Value
 }
 
-func newLRUCache(maxBytes int64, OnEvicted func(string, Value)) *LRUCache {
+func newLRUCache(maxBytes int64) *LRUCache {
 	return &LRUCache{
-		baseCache: baseCache{maxBytes: maxBytes},
+		baseCache: newBaseCache(maxBytes),
 		ll:        list.New(),
 		items:     make(map[string]*list.Element),
 	}

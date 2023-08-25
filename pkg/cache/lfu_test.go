@@ -9,7 +9,7 @@ import (
 )
 
 func TestGetLFU(t *testing.T) {
-	lfu := newLFUCache(int64(0), nil)
+	lfu := newLFUCache(int64(0))
 	lfu.Set("k1", String("v1"))
 	if v, ok := lfu.Get("k1"); !ok || string(v.(String)) != "v1" {
 		t.Fatalf("get key k1 failed, expect v1, got %v", v)
@@ -20,7 +20,7 @@ func TestGetLFU(t *testing.T) {
 }
 
 func TestSetLFU(t *testing.T) {
-	lfu := newLFUCache(int64(0), nil)
+	lfu := newLFUCache(int64(0))
 	lfu.Set("k1", String("v1"))
 	lfu.Set("k2", String("v2"))
 	if v, ok := lfu.Get("k1"); !ok || string(v.(String)) != "v1" {
@@ -39,7 +39,7 @@ func TestSetLFU(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		keys = append(keys, fmt.Sprintf("%d+a", i))
 	}
-	lfu = newLFUCache(int64(36), nil)
+	lfu = newLFUCache(int64(36))
 	for i, k := range keys {
 		lfu.Set(k, String(k))
 		for j := 0; j < i; j++ {
@@ -57,7 +57,7 @@ func TestSetLFU(t *testing.T) {
 }
 
 func TestRemoveLFU(t *testing.T) {
-	lfu := newLFUCache(int64(0), nil)
+	lfu := newLFUCache(int64(0))
 	lfu.Set("key1", String("1234"))
 	lfu.Remove("key1")
 	if lfu.Has("key1") {
@@ -66,7 +66,7 @@ func TestRemoveLFU(t *testing.T) {
 }
 
 func TestKeysLFU(t *testing.T) {
-	lfu := newLFUCache(int64(0), nil)
+	lfu := newLFUCache(int64(0))
 	lfu.Set("k1", String("v1"))
 	lfu.Set("k2", String("v2"))
 	lfu.Set("k3", String("v3"))
@@ -84,7 +84,7 @@ func TestKeysLFU(t *testing.T) {
 }
 
 func TestLenLFU(t *testing.T) {
-	lfu := newLFUCache(int64(0), nil)
+	lfu := newLFUCache(int64(0))
 	sz := lfu.Len()
 	if sz != 0 {
 		t.Fatalf("lfu has wrong length, expect: 0, got: %d", sz)
@@ -97,7 +97,7 @@ func TestLenLFU(t *testing.T) {
 }
 
 func TestHasLFU(t *testing.T) {
-	lfu := newLFUCache(int64(0), nil)
+	lfu := newLFUCache(int64(0))
 	lfu.Set("key1", String("1234"))
 	if !lfu.Has("key1") {
 		t.Fatalf("lfu should have key1")
@@ -108,7 +108,7 @@ func TestHasLFU(t *testing.T) {
 }
 
 func TestShrinkLFU(t *testing.T) {
-	lfu := newLFUCache(int64(0), nil)
+	lfu := newLFUCache(int64(0))
 	lfu.Set("k1", String("v1"))
 	if !lfu.Has("k1") {
 		t.Fatalf("lfu should have key1")

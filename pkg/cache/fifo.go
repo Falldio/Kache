@@ -17,9 +17,9 @@ type fifoEntry struct {
 	value Value
 }
 
-func newFIFOCache(maxBytes int64, OnEnvicted func(string, Value)) *FIFOCache {
+func newFIFOCache(maxBytes int64) *FIFOCache {
 	return &FIFOCache{
-		baseCache: baseCache{maxBytes: maxBytes},
+		baseCache: newBaseCache(maxBytes),
 		items:     make(map[string]*list.Element),
 		ll:        list.New(),
 	}

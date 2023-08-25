@@ -5,7 +5,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func NewDefaultCache() Cache {
+func NewDefaultCache(isHotCache bool) Cache {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Errorf("panic: %s", err)
@@ -13,11 +13,11 @@ func NewDefaultCache() Cache {
 	}()
 	switch config.Config.CacheStrategy {
 	case CACHE_STRATEGY_FIFO:
-		return newFIFOCache(config.Config.MaxCacheBytes, nil)
+		return newFIFOCache(config.Config.MaxCacheBytes)
 	case CACHE_STRATEGY_LRU:
-		return newLRUCache(config.Config.MaxCacheBytes, nil)
+		return newLRUCache(config.Config.MaxCacheBytes)
 	case CACHE_STRATEGY_LFU:
-		return newLFUCache(config.Config.MaxCacheBytes, nil)
+		return newLFUCache(config.Config.MaxCacheBytes)
 	default:
 		panic("unknown cache strategy: " + config.Config.CacheStrategy)
 	}

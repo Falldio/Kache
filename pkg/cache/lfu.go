@@ -23,9 +23,9 @@ type lfuEntry struct {
 	insertTime time.Time
 }
 
-func newLFUCache(maxBytes int64, OnEvicted func(string, Value)) *LFUCache {
+func newLFUCache(maxBytes int64) *LFUCache {
 	return &LFUCache{
-		baseCache: baseCache{maxBytes: maxBytes},
+		baseCache: newBaseCache(maxBytes),
 		items:     make(map[string]*list.Element),
 		freqMap:   make(map[int64]*list.List),
 		minFreq:   0,
