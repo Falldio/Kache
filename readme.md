@@ -15,9 +15,8 @@ Kache is a distributed caching system developed for learning purpose only. The g
 + use `gRPC` instead of `HTTP` as the communication protocol
 + support more caching strategies like lfu, fifo ...
 + support service discovery and registration by `etcd`
++ support lazy key deletion
 
 ## TODO List
 
-+ add hot cache support
-+ add expiration mechanism
 + support data persistence
