@@ -54,8 +54,8 @@ func NewGroup(name string, cacheBytes int64, getter Getter) *Group {
 		name:       name,
 		getter:     getter,
 		cacheBytes: cacheBytes,
-		mainCache:  cache.NewDefaultCache(),
-		hotCache:   cache.NewDefaultCache(),
+		mainCache:  cache.NewDefaultCache(false),
+		hotCache:   cache.NewDefaultCache(true),
 		loader:     &singleflight.Group{},
 	}
 	groups[name] = g
@@ -127,6 +127,12 @@ func (g *Group) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
 	if err != nil {
 		return ByteView{}, err
 	}
+
+	// set hotCache
+	go peer.Watch(g.name, key, func(bts []byte) {
+		g.populateCache(key, ByteView{bts: bts}, &g.hotCache)
+	})
+
 	return ByteView{bts: v}, nil
 }
 
