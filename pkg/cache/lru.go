@@ -2,6 +2,7 @@ package cache
 
 import (
 	"container/list"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -14,8 +15,20 @@ type LRUCache struct {
 }
 
 type lruEntry struct {
-	key   string
-	value Value
+	cacheEntry
+}
+
+func newLRUEntry(key string, value Value, ttl time.Duration) *lruEntry {
+	e := &lruEntry{
+		cacheEntry: cacheEntry{
+			key:   key,
+			value: value,
+		},
+	}
+	if ttl > 0 {
+		e.ttl = time.Now().Add(ttl)
+	}
+	return e
 }
 
 func newLRUCache(maxBytes int64) *LRUCache {
@@ -30,8 +43,12 @@ func (c *LRUCache) Get(key string) (value Value, ok bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if el, ok := c.items[key]; ok {
-		c.ll.MoveToFront(el)
 		kv := el.Value.(*lruEntry)
+		if !kv.ttl.IsZero() && kv.ttl.Before(time.Now()) {
+			c.remove(key)
+			return nil, false
+		}
+		c.ll.MoveToFront(el)
 		return kv.value, true
 	}
 	return
@@ -48,16 +65,21 @@ func (c *LRUCache) removeOldest() {
 	}
 }
 
-func (c *LRUCache) Set(key string, value Value) {
+func (c *LRUCache) Set(key string, value Value, ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if el, ok := c.items[key]; ok {
 		c.ll.MoveToFront(el)
 		kv := el.Value.(*lruEntry)
+		if ttl > 0 {
+			kv.ttl = time.Now().Add(ttl)
+		} else {
+			kv.ttl = time.Time{}
+		}
 		c.nbytes += int64(value.Len()) - int64(kv.value.Len())
 		kv.value = value
 	} else {
-		el := c.ll.PushFront(&lruEntry{key, value})
+		el := c.ll.PushFront(newLRUEntry(key, value, ttl))
 		c.items[key] = el
 		c.nbytes += int64(len(key)) + int64(value.Len())
 	}
@@ -76,9 +98,15 @@ func (c *LRUCache) Has(key string) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	el, ok := c.items[key]
-	if ok {
-		c.ll.MoveToFront(el)
+	if !ok {
+		return false
 	}
+	kv := el.Value.(*lruEntry)
+	if !kv.ttl.IsZero() && kv.ttl.Before(time.Now()) {
+		c.remove(key)
+		return false
+	}
+	c.ll.MoveToFront(el)
 	return ok
 }
 
@@ -95,6 +123,10 @@ func (c *LRUCache) Keys() []string {
 func (c *LRUCache) Remove(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.remove(key)
+}
+
+func (c *LRUCache) remove(key string) {
 	if el, ok := c.items[key]; ok {
 		kv := el.Value.(*lruEntry)
 		c.nbytes -= int64(len(kv.key)) + int64(kv.value.Len())

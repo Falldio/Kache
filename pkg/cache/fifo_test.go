@@ -5,11 +5,12 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 )
 
 func TestGetFIFO(t *testing.T) {
 	fifo := newFIFOCache(int64(0))
-	fifo.Set("k1", String("v1"))
+	fifo.Set("k1", String("v1"), 0)
 	if v, ok := fifo.Get("k1"); !ok || string(v.(String)) != "v1" {
 		t.Fatalf("get key k1 failed, expect v1, got %v", v)
 	}
@@ -21,8 +22,8 @@ func TestGetFIFO(t *testing.T) {
 func TestSetFIFO(t *testing.T) {
 	// normal set
 	fifo := newFIFOCache(int64(0))
-	fifo.Set("k1", String("v1"))
-	fifo.Set("k2", String("v2"))
+	fifo.Set("k1", String("v1"), 0)
+	fifo.Set("k2", String("v2"), 0)
 	if v, ok := fifo.Get("k1"); !ok || string(v.(String)) != "v1" {
 		t.Fatalf("get key k1 failed, expect v1, got %v", v)
 	}
@@ -31,7 +32,7 @@ func TestSetFIFO(t *testing.T) {
 	}
 
 	// update
-	fifo.Set("k2", String("v3"))
+	fifo.Set("k2", String("v3"), 0)
 	if v, ok := fifo.Get("k2"); !ok || string(v.(String)) != "v3" {
 		t.Fatalf("get key k2 failed, expect v3, got %v", v)
 	}
@@ -43,7 +44,7 @@ func TestSetFIFO(t *testing.T) {
 	}
 	fifo = newFIFOCache(int64(8))
 	for _, k := range keys {
-		fifo.Set(k, String(k))
+		fifo.Set(k, String(k), 0)
 	}
 	if v, ok := fifo.Get(keys[0]); ok {
 		t.Fatalf("expect empty, got %v", v)
@@ -55,7 +56,7 @@ func TestSetFIFO(t *testing.T) {
 
 func TestRemoveFIFO(t *testing.T) {
 	fifo := newFIFOCache(int64(0))
-	fifo.Set("key1", String("1234"))
+	fifo.Set("key1", String("1234"), 0)
 	fifo.Remove("key1")
 	if fifo.Has("key1") {
 		t.Fatalf("fifo shouldn't have key1")
@@ -64,11 +65,11 @@ func TestRemoveFIFO(t *testing.T) {
 
 func TestKeysFIFO(t *testing.T) {
 	fifo := newFIFOCache(int64(0))
-	fifo.Set("k1", String("v1"))
-	fifo.Set("k2", String("v2"))
-	fifo.Set("k3", String("v3"))
-	fifo.Set("k4", String("v4"))
-	fifo.Set("k5", String("v5"))
+	fifo.Set("k1", String("v1"), 0)
+	fifo.Set("k2", String("v2"), 0)
+	fifo.Set("k3", String("v3"), 0)
+	fifo.Set("k4", String("v4"), 0)
+	fifo.Set("k5", String("v5"), 0)
 	expect := []string{"k1", "k2", "k3", "k4", "k5"}
 
 	keys := fifo.Keys()
@@ -86,7 +87,7 @@ func TestLenFIFO(t *testing.T) {
 	if sz != 0 {
 		t.Fatalf("fifo has wrong length, expect: 0, got: %d", sz)
 	}
-	fifo.Set("key1", String("1234"))
+	fifo.Set("key1", String("1234"), 0)
 	sz = fifo.Len()
 	if sz != 1 {
 		t.Fatalf("fifo has wrong length, expect: 1, got: %d", sz)
@@ -95,7 +96,7 @@ func TestLenFIFO(t *testing.T) {
 
 func TestHasFIFO(t *testing.T) {
 	fifo := newFIFOCache(int64(0))
-	fifo.Set("key1", String("1234"))
+	fifo.Set("key1", String("1234"), 0)
 	if !fifo.Has("key1") {
 		t.Fatalf("fifo should have key1")
 	}
@@ -111,7 +112,7 @@ func TestShrinkFIFO(t *testing.T) {
 		keys = append(keys, fmt.Sprintf("%d+a", i))
 	}
 	for _, k := range keys {
-		fifo.Set(k, String(k))
+		fifo.Set(k, String(k), 0)
 	}
 	if v, ok := fifo.Get(keys[0]); !ok {
 		t.Fatalf("expect %v, got %v", keys[0], v)
@@ -119,5 +120,36 @@ func TestShrinkFIFO(t *testing.T) {
 	fifo.Shrink()
 	if v, ok := fifo.Get(keys[0]); ok {
 		t.Fatalf("expect empty, got %v", v)
+	}
+}
+
+func TestExpireFIFO(t *testing.T) {
+	fifo := newFIFOCache(int64(0))
+	fifo.Set("key1", String("1234"), time.Millisecond*10)
+	time.Sleep(time.Millisecond * 20)
+	if fifo.Has("key1") {
+		t.Fatalf("fifo should not have key1")
+	}
+	_, ok := fifo.Get("key1")
+	if ok {
+		t.Fatalf("fifo should not have key1")
+	}
+
+	// update ttl
+	fifo.Set("key1", String("1234"), time.Millisecond*20)
+	fifo.Set("key1", String("1234"), time.Millisecond*10)
+	if _, ok := fifo.Get("key1"); !ok {
+		t.Fatalf("fifo should have key1")
+	}
+	time.Sleep(time.Millisecond * 10)
+	if fifo.Has("key1") {
+		t.Fatalf("fifo should not have key1")
+	}
+
+	// remove on get
+	fifo.Set("key1", String("1234"), time.Millisecond*10)
+	time.Sleep(time.Millisecond * 20)
+	if _, ok := fifo.Get("key1"); ok {
+		t.Fatalf("fifo should not have key1")
 	}
 }

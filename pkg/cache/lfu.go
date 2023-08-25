@@ -17,10 +17,24 @@ type LFUCache struct {
 }
 
 type lfuEntry struct {
-	key        string
-	value      Value
+	cacheEntry
 	freq       int64
 	insertTime time.Time
+}
+
+func newLFUEntry(key string, value Value, freq int64, ttl time.Duration) *lfuEntry {
+	e := &lfuEntry{
+		cacheEntry: cacheEntry{
+			key:   key,
+			value: value,
+		},
+		insertTime: time.Now(),
+		freq:       freq,
+	}
+	if ttl > 0 {
+		e.ttl = time.Now().Add(ttl)
+	}
+	return e
 }
 
 func newLFUCache(maxBytes int64) *LFUCache {
@@ -38,6 +52,10 @@ func (c *LFUCache) Get(key string) (v Value, ok bool) {
 	defer c.mu.Unlock()
 	if el, ok := c.items[key]; ok {
 		kv := el.Value.(*lfuEntry)
+		if !kv.ttl.IsZero() && kv.ttl.Before(time.Now()) {
+			c.remove(el)
+			return nil, false
+		}
 		c.updateFreq(el)
 		return kv.value, true
 	}
@@ -45,7 +63,7 @@ func (c *LFUCache) Get(key string) (v Value, ok bool) {
 	return
 }
 
-func (c *LFUCache) Set(key string, value Value) {
+func (c *LFUCache) Set(key string, value Value, ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for c.maxBytes != 0 && c.nbytes > c.maxBytes {
@@ -53,6 +71,11 @@ func (c *LFUCache) Set(key string, value Value) {
 	}
 	if el, ok := c.items[key]; ok {
 		kv := el.Value.(*lfuEntry)
+		if ttl > 0 {
+			kv.ttl = time.Now().Add(ttl)
+		} else {
+			kv.ttl = time.Time{}
+		}
 		c.nbytes += int64(value.Len()) - int64(kv.value.Len())
 		kv.value = value
 		el.Value = kv
@@ -61,7 +84,7 @@ func (c *LFUCache) Set(key string, value Value) {
 		if _, ok := c.freqMap[1]; !ok {
 			c.freqMap[1] = list.New()
 		}
-		ev := &lfuEntry{key: key, freq: 1, value: value, insertTime: time.Now()}
+		ev := newLFUEntry(key, value, 1, ttl)
 		el := c.freqMap[1].PushFront(ev)
 		c.items[key] = el
 		c.minFreq = 1
@@ -144,9 +167,15 @@ func (c *LFUCache) Has(key string) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	el, ok := c.items[key]
-	if ok {
-		c.updateFreq(el)
+	if !ok {
+		return false
 	}
+	kv := el.Value.(*lfuEntry)
+	if !kv.ttl.IsZero() && kv.ttl.Before(time.Now()) {
+		c.remove(el)
+		return false
+	}
+	c.updateFreq(el)
 	return ok
 }
 

@@ -10,7 +10,7 @@ import (
 
 func TestGetLFU(t *testing.T) {
 	lfu := newLFUCache(int64(0))
-	lfu.Set("k1", String("v1"))
+	lfu.Set("k1", String("v1"), 0)
 	if v, ok := lfu.Get("k1"); !ok || string(v.(String)) != "v1" {
 		t.Fatalf("get key k1 failed, expect v1, got %v", v)
 	}
@@ -21,8 +21,8 @@ func TestGetLFU(t *testing.T) {
 
 func TestSetLFU(t *testing.T) {
 	lfu := newLFUCache(int64(0))
-	lfu.Set("k1", String("v1"))
-	lfu.Set("k2", String("v2"))
+	lfu.Set("k1", String("v1"), 0)
+	lfu.Set("k2", String("v2"), 0)
 	if v, ok := lfu.Get("k1"); !ok || string(v.(String)) != "v1" {
 		t.Fatalf("get key k1 failed, expect v1, got %v", v)
 	}
@@ -30,7 +30,7 @@ func TestSetLFU(t *testing.T) {
 		t.Fatalf("get key k2 failed, expect v2, got %v", v)
 	}
 	// update
-	lfu.Set("k2", String("v3"))
+	lfu.Set("k2", String("v3"), 0)
 	if v, ok := lfu.Get("k2"); !ok || string(v.(String)) != "v3" {
 		t.Fatalf("get key k2 failed, expect v3, got %v", v)
 	}
@@ -41,7 +41,7 @@ func TestSetLFU(t *testing.T) {
 	}
 	lfu = newLFUCache(int64(36))
 	for i, k := range keys {
-		lfu.Set(k, String(k))
+		lfu.Set(k, String(k), 0)
 		for j := 0; j < i; j++ {
 			lfu.Get(k)
 		}
@@ -58,7 +58,7 @@ func TestSetLFU(t *testing.T) {
 
 func TestRemoveLFU(t *testing.T) {
 	lfu := newLFUCache(int64(0))
-	lfu.Set("key1", String("1234"))
+	lfu.Set("key1", String("1234"), 0)
 	lfu.Remove("key1")
 	if lfu.Has("key1") {
 		t.Fatalf("lfu shouldn't have key1")
@@ -67,11 +67,11 @@ func TestRemoveLFU(t *testing.T) {
 
 func TestKeysLFU(t *testing.T) {
 	lfu := newLFUCache(int64(0))
-	lfu.Set("k1", String("v1"))
-	lfu.Set("k2", String("v2"))
-	lfu.Set("k3", String("v3"))
-	lfu.Set("k4", String("v4"))
-	lfu.Set("k5", String("v5"))
+	lfu.Set("k1", String("v1"), 0)
+	lfu.Set("k2", String("v2"), 0)
+	lfu.Set("k3", String("v3"), 0)
+	lfu.Set("k4", String("v4"), 0)
+	lfu.Set("k5", String("v5"), 0)
 	expect := []string{"k1", "k2", "k3", "k4", "k5"}
 
 	keys := lfu.Keys()
@@ -89,7 +89,7 @@ func TestLenLFU(t *testing.T) {
 	if sz != 0 {
 		t.Fatalf("lfu has wrong length, expect: 0, got: %d", sz)
 	}
-	lfu.Set("key1", String("1234"))
+	lfu.Set("key1", String("1234"), 0)
 	sz = lfu.Len()
 	if sz != 1 {
 		t.Fatalf("lfu has wrong length, expect: 1, got: %d", sz)
@@ -98,7 +98,7 @@ func TestLenLFU(t *testing.T) {
 
 func TestHasLFU(t *testing.T) {
 	lfu := newLFUCache(int64(0))
-	lfu.Set("key1", String("1234"))
+	lfu.Set("key1", String("1234"), 0)
 	if !lfu.Has("key1") {
 		t.Fatalf("lfu should have key1")
 	}
@@ -109,12 +109,41 @@ func TestHasLFU(t *testing.T) {
 
 func TestShrinkLFU(t *testing.T) {
 	lfu := newLFUCache(int64(0))
-	lfu.Set("k1", String("v1"))
+	lfu.Set("k1", String("v1"), 0)
 	if !lfu.Has("k1") {
 		t.Fatalf("lfu should have key1")
 	}
 	lfu.Shrink()
 	if lfu.Has("k1") {
+		t.Fatalf("lfu shouldn't have key1")
+	}
+}
+
+func TestExpireLFU(t *testing.T) {
+	lfu := newLFUCache(int64(0))
+	lfu.Set("k1", String("v1"), time.Millisecond*10)
+	time.Sleep(time.Millisecond * 20)
+	if lfu.Has("k1") {
+		t.Fatalf("lfu shouldn't have key1")
+	}
+	if v, ok := lfu.Get("k1"); ok {
+		t.Fatalf("lfu shouldn't have key1, got %v", v)
+	}
+	// update ttl
+	lfu.Set("k1", String("v1"), time.Millisecond*20)
+	lfu.Set("k1", String("v1"), time.Millisecond*10)
+	if v, ok := lfu.Get("k1"); !ok || string(v.(String)) != "v1" {
+		t.Fatalf("get key k1 failed, expect v1, got %v", v)
+	}
+	time.Sleep(time.Millisecond * 10)
+	if lfu.Has("k1") {
+		t.Fatalf("lfu shouldn't have key1")
+	}
+
+	// remove on get
+	lfu.Set("k1", String("v1"), time.Millisecond*10)
+	time.Sleep(time.Millisecond * 20)
+	if _, ok := lfu.Get("k1"); ok {
 		t.Fatalf("lfu shouldn't have key1")
 	}
 }

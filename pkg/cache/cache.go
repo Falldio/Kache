@@ -2,6 +2,7 @@ package cache
 
 import (
 	"sync"
+	"time"
 )
 
 type cacheStrategy string
@@ -18,7 +19,7 @@ type Value interface {
 
 type Cache interface {
 	Get(key string) (Value, bool)
-	Set(key string, value Value)
+	Set(key string, value Value, ttl time.Duration)
 	Remove(key string)
 	Keys() []string
 	Len() int
@@ -31,6 +32,12 @@ type baseCache struct {
 	mu       sync.RWMutex
 	maxBytes int64
 	nbytes   int64 // current size
+}
+
+type cacheEntry struct {
+	key   string
+	value Value
+	ttl   time.Time
 }
 
 func newBaseCache(maxBytes int64) baseCache {
