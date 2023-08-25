@@ -3,6 +3,7 @@ package kache
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/falldio/Kache/pkg/cache"
 	"github.com/falldio/Kache/pkg/singleflight"
@@ -150,7 +151,7 @@ func (g *Group) populateCache(key string, value ByteView, cache *cache.Cache) {
 	if g.cacheBytes <= 0 {
 		return
 	}
-	(*cache).Set(key, value)
+	(*cache).Set(key, value, time.Duration(0))
 	for {
 		mainBytes := g.mainCache.Bytes()
 		hotBytes := g.hotCache.Bytes()
