@@ -49,4 +49,8 @@ func TestGet(t *testing.T) {
 	if view, err := g.Get("unknown"); err == nil {
 		t.Fatalf("expect empty, get %s", view)
 	}
+
+	if _, err := g.Get(""); err == nil {
+		t.Fatalf("expect empty, get %s", "")
+	}
 }
