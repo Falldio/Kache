@@ -3,6 +3,7 @@ package kache
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	pb "github.com/falldio/Kache/pkg/proto"
@@ -37,11 +38,26 @@ func (c *Client) Get(group string, key string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("getting %s/%s from peer %s: %w", group, key, c.name, err)
 	}
+
 	return resp.GetValue(), nil
 }
 
 func NewClient(service string) *Client {
 	return &Client{name: service}
+}
+
+func (c *Client) Watch(group string, key string, onUpdated func([]byte)) {
+	cli, err := clientv3.New(registry.DefaultETCDConfig)
+	if err != nil {
+		log.Fatalf("creating etcd client: %v", err)
+	}
+	defer cli.Close()
+	rch := cli.Watch(context.Background(), fmt.Sprintf("/%s/%s", group, key))
+	for wresp := range rch {
+		for _, ev := range wresp.Events {
+			onUpdated(ev.Kv.Value)
+		}
+	}
 }
 
 var _ PeerGetter = (*Client)(nil)

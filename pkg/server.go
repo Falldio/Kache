@@ -12,6 +12,7 @@ import (
 	pb "github.com/falldio/Kache/pkg/proto"
 	"github.com/falldio/Kache/pkg/registry"
 	log "github.com/sirupsen/logrus"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
 )
 
@@ -48,6 +49,14 @@ func (s *Server) Get(ctx context.Context, in *pb.Request) (*pb.Response, error) 
 		return resp, err
 	}
 	resp.Value = view.ByteSlice()
+
+	// update hot cache
+	go func() {
+		err = s.Update(group, key, resp.Value)
+		if err != nil {
+			log.Errorf("[%s] Updating %s/%s: %v", s.self, group, key, err)
+		}
+	}()
 	return resp, nil
 }
 
@@ -140,6 +149,19 @@ func (s *Server) Stop() {
 	s.running = false
 	s.clients = nil
 	s.peers = nil
+}
+
+func (s *Server) Update(group, key string, value []byte) error {
+	cli, err := clientv3.New(registry.DefaultETCDConfig)
+	if err != nil {
+		return fmt.Errorf("creating etcd client: %w", err)
+	}
+	defer cli.Close()
+	_, err = cli.Put(context.Background(), fmt.Sprintf("/%s/%s", group, key), string(value))
+	if err != nil {
+		return fmt.Errorf("updating %s/%s: %w", group, key, err)
+	}
+	return nil
 }
 
 var _ PeerPicker = (*Server)(nil)
