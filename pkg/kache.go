@@ -82,6 +82,14 @@ func (g *Group) Get(key string) (ByteView, error) {
 	return g.load(key)
 }
 
+func (g *Group) Set(key string, value []byte, ttl time.Duration) bool {
+	if key == "" {
+		return false
+	}
+	g.mainCache.Set(key, ByteView{bts: cloneBytes(value)}, ttl)
+	return true
+}
+
 func (g *Group) lookupCache(key string) (value ByteView, ok bool) {
 	if g.cacheBytes <= 0 {
 		return
